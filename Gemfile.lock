@@ -27,6 +27,9 @@ GEM
       tzinfo (~> 0.3.37)
     arel (4.0.0)
     atomic (1.1.12)
+    bson (1.9.1)
+    bson_ext (1.9.1)
+      bson (~> 1.9.1)
     builder (3.1.4)
     capistrano (2.15.5)
       highline
@@ -62,6 +65,8 @@ GEM
       treetop (~> 1.4.8)
     mime-types (1.23)
     minitest (4.7.5)
+    mongo (1.9.1)
+      bson (~> 1.9.1)
     multi_json (1.7.9)
     net-scp (1.1.2)
       net-ssh (>= 2.6.5)
@@ -110,6 +115,7 @@ GEM
       actionpack (>= 3.0)
       activesupport (>= 3.0)
       sprockets (~> 2.8)
+    sqlite3 (1.3.7)
     therubyracer (0.11.4)
       libv8 (~> 3.11.8.12)
       ref
@@ -135,15 +141,19 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  bson
+  bson_ext
   capistrano
   coffee-rails (~> 4.0.0)
   execjs
   jbuilder (~> 1.2)
   jquery-rails
+  mongo
   rails (= 4.0.0)
   rvm-capistrano
   sass-rails (~> 4.0.0)
   sdoc
+  sqlite3
   therubyracer
   thin
   turbolinks
