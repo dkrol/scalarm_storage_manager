@@ -8,9 +8,13 @@ class MongoActiveRecord
   @@db = @@grid = nil
 
   def self.connection_init(config_yaml)
-    @@client = MongoClient.new(config_yaml['mongo_host'], config_yaml['mongo_port'])
-    @@db = @@client[config_yaml['db_name']]
-    @@grid = Mongo::Grid.new(@@db)
+    begin
+      @@client = MongoClient.new(config_yaml['mongo_host'], config_yaml['mongo_port'])
+      @@db = @@client[config_yaml['db_name']]
+      @@grid = Mongo::Grid.new(@@db)
+    rescue Exception => e
+      puts "Could not initialize connection with MongoDB --- #{e}"
+    end
   end
 
   # object instance constructor based on map of attributes (json document is good example)
