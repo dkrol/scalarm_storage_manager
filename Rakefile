@@ -21,7 +21,7 @@ namespace :log_bank do
 end
 
 # configuration - path to a folder with database binaries
-DB_BIN_PATH = File.join('.', 'mongodb-2.4.3', 'bin')
+DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
 
 namespace :db_instance do
   desc 'Start DB instance'
