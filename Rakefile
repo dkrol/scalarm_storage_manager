@@ -4,3 +4,16 @@
 require File.expand_path('../config/application', __FILE__)
 
 ScalarmStorageManager::Application.load_tasks
+
+namespace :log_bank do
+  desc 'Start the service'
+  task :start => :environment do
+    %x[thin start -d -C config/thin.yml]
+  end
+
+  desc 'Stop the service'
+  task :stop => :environment do
+    %x[thin stop -C config/thin.yml]
+  end
+
+end

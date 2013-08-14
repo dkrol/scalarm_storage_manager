@@ -1,0 +1,4 @@
+pid: tmp/pids/thin.pid
+log: log/thin.log
+environment: production
+socket: /tmp/scalarm_storage_manager.sock

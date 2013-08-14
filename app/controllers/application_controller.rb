@@ -16,13 +16,6 @@ class ApplicationController < ActionController::Base
       scalarm_user = ScalarmUser.find_by_dn(request.env['HTTP_SSL_CLIENT_S_DN'])
 
       return true if scalarm_user.nil?
-      #  puts "Authentication failed: user with DN = #{request.env['HTTP_SSL_CLIENT_S_DN']} not found"
-
-        #halt 403, "Authentication failed: user with DN = #{request.env['HTTP_SSL_CLIENT_S_DN']} not found"
-        #return false
-      #else
-      #  return true
-      #end
     end
 
     if request.env.include?('HTTP_AUTHORIZATION') and request.env['HTTP_AUTHORIZATION'].include?('Basic')
@@ -34,7 +27,7 @@ class ApplicationController < ActionController::Base
       end
     end
 
-    render inline: 'Authentication failed', status: 403
+    false
   end
 
 end

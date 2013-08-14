@@ -1,0 +1,8 @@
+# at which port the service should listen
+host: localhost
+port: 20001
+# where log bank should store content
+mongo_host: 'localhost'
+mongo_port: 27017
+db_name: 'scalarm_db'
+binaries_collection_name: 'simulation_files'
