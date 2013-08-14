@@ -121,6 +121,81 @@ namespace :db_instance do
   end
 end
 
+namespace :db_config_service do
+  desc 'Start DB Config Service'
+  task :start => :environment do
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    information_service = InformationService.new(config['information_service_url'],
+                                    config['information_service_user'], config['information_service_pass'])
+
+    unless File.exist?(File.join(DB_BIN_PATH, config['db_config_dbpath']))
+      %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_config_dbpath'])}]
+    end
+    clear_config(config)
+
+    puts start_config_cmd(config)
+    puts %x[#{start_config_cmd(config)}]
+
+    information_service.register_service('db_config_services', config['host'], config['db_config_port'])
+
+    puts "Starting router at: #{config['host']}:#{config['db_config_port']}"
+
+    start_router("#{config['host']}:#{config['db_config_port']}", information_service, config)
+
+    db = Mongo::Connection.new('localhost').db('admin')
+    # retrieve already registered shards and add them to this service
+    JSON.parse(information_service.get_list_of('db_instances')).each do |db_instance_url|
+      puts "DB instance URL: #{db_instance_url}"
+
+      command = BSON::OrderedHash.new
+      command['addShard'] = db_instance_url
+
+      puts db.command(command).inspect
+    end
+
+    #stop_router(config) if not is_router_run
+  end
+
+  desc 'Stop DB instance'
+  task :stop => :environment do
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    information_service = InformationService.new(config['information_service_url'],
+                                config['information_service_user'], config['information_service_pass'])
+
+    kill_processes_from_list(proc_list('router', config))
+    kill_processes_from_list(proc_list('config', config))
+    information_service.deregister_service('db_config_services', config['host'], config['db_config_port'])
+  end
+end
+
+namespace :db_router do
+  desc 'Start DB router'
+  task :start => :environment do
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+    information_service = InformationService.new(config['information_service_url'],
+                                    config['information_service_user'], config['information_service_pass'])
+
+    if service_status('router', config)
+      stop_router(config)
+    end
+
+    config_services = JSON.parse(information_service.get_list_of('db_config_services'))
+    config_service_url = config_services.sample
+
+    return if config_service_url.nil?
+
+    puts start_router_cmd(config_service_url, config)
+    puts %x[#{start_router_cmd(config_service_url, config)}]
+  end
+
+  desc 'Stop DB instance'
+  task :stop => :environment do
+    config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
+
+    kill_processes_from_list(proc_list('router', config))
+  end
+end
+
 # TODO clear instance - is this necessary ?
 def clear_instance(config)
   puts "rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*"
@@ -147,7 +222,7 @@ end
 
 def proc_list(service, config)
   proc_name = if service == 'router'
-                "./mongos --port #{config['db_router_port']}"
+                "./mongos .* --port #{config['db_router_port']}"
               elsif service == 'config'
                 "./mongod --configsvr .* --port #{config['db_config_port']}"
               elsif service == 'instance'
@@ -213,5 +288,21 @@ def start_router_cmd(config_db_url, config)
 
   ["cd #{DB_BIN_PATH}",
    "./mongos --bind_ip #{config['host']} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
+  ].join(';')
+end
+
+def clear_config(config)
+  puts "rm -rf #{DB_BIN_PATH}/#{config['db_config_dbpath']}/*"
+  puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_config_dbpath']}/*]
+end
+
+# ./mongod --configsvr --dbpath /opt/scalarm_storage_manager/scalarm_db_data --port 28000 --logpath /opt/scalarm_storage_manager/log/scalarm_db.log --fork
+def start_config_cmd(config)
+  log_append = File.exist?(config['db_config_logpath']) ? '--logappend' : ''
+
+  ["cd #{DB_BIN_PATH}",
+   "./mongod --configsvr --bind_ip #{config['host']} --port #{config['db_config_port']} " +
+       "--dbpath #{config['db_config_dbpath']} --logpath #{config['db_config_logpath']} " +
+       "--fork --nojournal #{log_append}"
   ].join(';')
 end
