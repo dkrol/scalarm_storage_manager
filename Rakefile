@@ -196,6 +196,8 @@ namespace :db_router do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
     kill_processes_from_list(proc_list('router', config))
+    information_service = InformationService.new(config['information_service_url'],
+                                        config['information_service_user'], config['information_service_pass'])
     information_service.deregister_service('db_routers', config['host'], config['db_router_port'])
   end
 end
