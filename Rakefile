@@ -32,7 +32,7 @@ namespace :db_instance do
       %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_instance_dbpath'])}]
     end
 
-    clear_instance(config)
+    #clear_instance(config)
 
     Rails.logger.debug(start_instance_cmd(config))
     Rails.logger.debug(%x[#{start_instance_cmd(config)}])
@@ -131,7 +131,7 @@ namespace :db_config_service do
     unless File.exist?(File.join(DB_BIN_PATH, config['db_config_dbpath']))
       %x[mkdir -p #{File.join(DB_BIN_PATH, config['db_config_dbpath'])}]
     end
-    clear_config(config)
+    #clear_config(config)
 
     puts start_config_cmd(config)
     puts %x[#{start_config_cmd(config)}]
@@ -202,7 +202,6 @@ namespace :db_router do
   end
 end
 
-# TODO clear instance - is this necessary ?
 def clear_instance(config)
   puts "rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*"
   puts %x[rm -rf #{DB_BIN_PATH}/#{config['db_instance_dbpath']}/*]
