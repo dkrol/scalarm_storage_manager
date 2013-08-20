@@ -153,6 +153,7 @@ namespace :db_config_service do
       puts db.command(command).inspect
     end
 
+    information_service.register_service('db_routers', config['host'], config['db_router_port'])
     #stop_router(config) if not is_router_run
   end
 
@@ -165,6 +166,7 @@ namespace :db_config_service do
     kill_processes_from_list(proc_list('router', config))
     kill_processes_from_list(proc_list('config', config))
     information_service.deregister_service('db_config_services', config['host'], config['db_config_port'])
+    information_service.deregister_service('db_routers', config['host'], config['db_router_port'])
   end
 end
 
@@ -186,6 +188,7 @@ namespace :db_router do
 
     puts start_router_cmd(config_service_url, config)
     puts %x[#{start_router_cmd(config_service_url, config)}]
+    information_service.register_service('db_routers', config['host'], config['db_router_port'])
   end
 
   desc 'Stop DB instance'
@@ -193,6 +196,7 @@ namespace :db_router do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
     kill_processes_from_list(proc_list('router', config))
+    information_service.deregister_service('db_routers', config['host'], config['db_router_port'])
   end
 end
 
