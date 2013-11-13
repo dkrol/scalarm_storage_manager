@@ -1,5 +1,8 @@
 require 'yaml'
 require 'json'
+require 'mongo'
+
+include Mongo
 
 # Add your own tasks in files placed in lib/tasks ending in .rake,
 # for example lib/tasks/capistrano.rake, and they will automatically be available to Rake.
@@ -75,8 +78,6 @@ namespace :db_instance do
     information_service = InformationService.new(config['information_service_url'],
                                 config['information_service_user'], config['information_service_pass'])
 
-    kill_processes_from_list(proc_list('instance', config))
-
     config_services = JSON.parse(information_service.get_list_of('db_config_services'))
 
     if config_services.blank?
@@ -117,6 +118,7 @@ namespace :db_instance do
       end
     end
 
+    kill_processes_from_list(proc_list('instance', config))
     information_service.deregister_service('db_instances', config['host'], config['db_instance_port'])
   end
 end
@@ -165,6 +167,7 @@ namespace :db_config_service do
 
     kill_processes_from_list(proc_list('router', config))
     kill_processes_from_list(proc_list('config', config))
+
     information_service.deregister_service('db_config_services', config['host'], config['db_config_port'])
     information_service.deregister_service('db_routers', config['host'], config['db_router_port'])
   end
@@ -213,15 +216,15 @@ def start_instance_cmd(config)
   ["cd #{DB_BIN_PATH}",
     "./mongod --shardsvr --bind_ip #{config['host']} --port #{config['db_instance_port']} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
-      "--cpu --quiet --rest --fork --nojournal #{log_append}"
+      "--cpu --quiet --rest --fork #{log_append}"
   ].join(';')
 end
 
 def kill_processes_from_list(processes_list)
   processes_list.each do |process_line|
     pid = process_line.split(' ')[1]
-    puts "kill -9 #{pid}"
-    system("kill -9 #{pid}")
+    puts "kill -15 #{pid}"
+    system("kill -15 #{pid}")
   end
 end
 
@@ -308,6 +311,6 @@ def start_config_cmd(config)
   ["cd #{DB_BIN_PATH}",
    "./mongod --configsvr --bind_ip #{config['host']} --port #{config['db_config_port']} " +
        "--dbpath #{config['db_config_dbpath']} --logpath #{config['db_config_logpath']} " +
-       "--fork --nojournal #{log_append}"
+       "--fork #{log_append}"
   ].join(';')
 end
