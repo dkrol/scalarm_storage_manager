@@ -25,6 +25,7 @@ end
 
 # configuration - path to a folder with database binaries
 DB_BIN_PATH = File.join('.', 'mongodb', 'bin')
+LOCAL_IP = UDPSocket.open {|s| s.connect("64.233.187.99", 1); s.addr.last}
 
 namespace :db_instance do
   desc 'Start DB instance'
@@ -43,7 +44,7 @@ namespace :db_instance do
     information_service = InformationService.new(config['information_service_url'],
                             config['information_service_user'], config['information_service_pass'])
 
-    information_service.register_service('db_instances', config['host'], config['db_instance_port'])
+    information_service.register_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
 
     # adding shard
     config_services = JSON.parse(information_service.get_list_of('db_config_services'))
@@ -53,7 +54,7 @@ namespace :db_instance do
     else
       puts "Adding the started db instance as a new shard --- #{config_services}"
       command = BSON::OrderedHash.new
-      command['addShard'] = "#{config['host']}:#{config['db_instance_port']}"
+      command['addShard'] = "#{config['host'] || LOCAL_IP}:#{config['db_instance_port']}"
 
       # this command can take some time - hence it should be called multiple times if necessary
       request_counter, response = 0, {}
@@ -93,7 +94,7 @@ namespace :db_instance do
         shard = list_shards_results['shards'].find { |x| x['host'] == "#{config['host']}:#{config['db_instance_port']}" }
 
         if shard.nil?
-          puts "Couldn't find shard with host set to #{config['host']}:#{config['db_instance_port']} - #{list_shards_results['shards'].inspect}"
+          puts "Couldn't find shard with host set to #{config['host'] || LOCAL_IP}:#{config['db_instance_port']} - #{list_shards_results['shards'].inspect}"
         else
           command = BSON::OrderedHash.new
           command['removeshard'] = shard['_id']
@@ -119,7 +120,7 @@ namespace :db_instance do
     end
 
     kill_processes_from_list(proc_list('instance', config))
-    information_service.deregister_service('db_instances', config['host'], config['db_instance_port'])
+    information_service.deregister_service('db_instances', config['host'] || LOCAL_IP, config['db_instance_port'])
   end
 end
 
@@ -138,13 +139,13 @@ namespace :db_config_service do
     puts start_config_cmd(config)
     puts %x[#{start_config_cmd(config)}]
 
-    information_service.register_service('db_config_services', config['host'], config['db_config_port'])
+    information_service.register_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
 
-    puts "Starting router at: #{config['host']}:#{config['db_config_port']}"
+    puts "Starting router at: #{config['host'] || LOCAL_IP}:#{config['db_config_port']}"
 
-    start_router("#{config['host']}:#{config['db_config_port']}", information_service, config)
+    start_router("#{config['host'] || LOCAL_IP}:#{config['db_config_port']}", information_service, config)
 
-    db = Mongo::Connection.new('localhost').db('admin')
+    db = Mongo::Connection.new(config['host'] || LOCAL_IP).db('admin')
     # retrieve already registered shards and add them to this service
     JSON.parse(information_service.get_list_of('db_instances')).each do |db_instance_url|
       puts "DB instance URL: #{db_instance_url}"
@@ -155,7 +156,7 @@ namespace :db_config_service do
       puts db.command(command).inspect
     end
 
-    information_service.register_service('db_routers', config['host'], config['db_router_port'])
+    information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
     #stop_router(config) if not is_router_run
   end
 
@@ -168,8 +169,8 @@ namespace :db_config_service do
     kill_processes_from_list(proc_list('router', config))
     kill_processes_from_list(proc_list('config', config))
 
-    information_service.deregister_service('db_config_services', config['host'], config['db_config_port'])
-    information_service.deregister_service('db_routers', config['host'], config['db_router_port'])
+    information_service.deregister_service('db_config_services', config['host'] || LOCAL_IP, config['db_config_port'])
+    information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
   end
 end
 
@@ -191,17 +192,17 @@ namespace :db_router do
 
     puts start_router_cmd(config_service_url, config)
     puts %x[#{start_router_cmd(config_service_url, config)}]
-    information_service.register_service('db_routers', config['host'], config['db_router_port'])
+    information_service.register_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
   end
 
-  desc 'Stop DB instance'
+  desc 'Stop DB router'
   task :stop => :environment do
     config = YAML.load_file("#{Rails.root}/config/scalarm.yml")
 
     kill_processes_from_list(proc_list('router', config))
     information_service = InformationService.new(config['information_service_url'],
                                         config['information_service_user'], config['information_service_pass'])
-    information_service.deregister_service('db_routers', config['host'], config['db_router_port'])
+    information_service.deregister_service('db_routers', config['host'] || LOCAL_IP, config['db_router_port'])
   end
 end
 
@@ -214,7 +215,7 @@ def start_instance_cmd(config)
   log_append = File.exist?(config['db_instance_logpath']) ? '--logappend' : ''
 
   ["cd #{DB_BIN_PATH}",
-    "./mongod --shardsvr --bind_ip #{config['host']} --port #{config['db_instance_port']} " +
+    "./mongod --shardsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_instance_port']} " +
       "--dbpath #{config['db_instance_dbpath']} --logpath #{config['db_instance_logpath']} " +
       "--cpu --quiet --rest --fork #{log_append}"
   ].join(';')
@@ -253,7 +254,7 @@ def run_command_on_local_router(command, information_service, config)
     router_run = service_status('router', config)
     start_router(config_service_url, information_service, config)
 
-    db = Mongo::Connection.new('localhost').db('admin')
+    db = Mongo::Connection.new(config['host'] || LOCAL_IP).db('admin')
     result = db.command(command)
     puts result.inspect
     stop_router(config) if not router_run
@@ -295,7 +296,7 @@ def start_router_cmd(config_db_url, config)
   log_append = File.exist?(config['db_router_logpath']) ? '--logappend' : ''
 
   ["cd #{DB_BIN_PATH}",
-   "./mongos --bind_ip #{config['host']} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
+   "./mongos --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_router_port']} --configdb #{config_db_url} --logpath #{config['db_router_logpath']} --fork #{log_append}"
   ].join(';')
 end
 
@@ -309,7 +310,7 @@ def start_config_cmd(config)
   log_append = File.exist?(config['db_config_logpath']) ? '--logappend' : ''
 
   ["cd #{DB_BIN_PATH}",
-   "./mongod --configsvr --bind_ip #{config['host']} --port #{config['db_config_port']} " +
+   "./mongod --configsvr --bind_ip #{config['host'] || LOCAL_IP} --port #{config['db_config_port']} " +
        "--dbpath #{config['db_config_dbpath']} --logpath #{config['db_config_logpath']} " +
        "--fork #{log_append}"
   ].join(';')
